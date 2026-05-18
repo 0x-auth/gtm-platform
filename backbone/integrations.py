@@ -12,7 +12,7 @@ GMAIL_TOKEN_PATH = Path(__file__).parent.parent / "data" / "gmail_token.json"
 GMAIL_CRED_PATH = Path(
     os.environ.get(
         "GMAIL_CRED_PATH",
-        str(Path.home() / "Downloads/client_secret_cred/client_secret_60240458334-gurvfrv2vlbh3vl4d1puhiqri3m6gcjs.apps.googleusercontent.com.json")
+        str(Path(__file__).parent.parent / "data" / "gmail_credentials.json")
     )
 )
 
