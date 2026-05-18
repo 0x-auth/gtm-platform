@@ -1,7 +1,7 @@
 # GTM Platform - AI-Native Go-to-Market
 
 **GitHub:** https://github.com/0x-auth/gtm-platform
-**Walkthrough video:** https://youtu.be/mYArS740qiI
+**Walkthrough video:** https://www.youtube.com/watch?v=qNmU3ZQKHNg
 
 An AI-native platform that automates the full prospect loop: research a company, find decision makers, score ICP fit, draft personalized outreach, and send via Gmail - all driven by an autonomous agent.
 
@@ -112,4 +112,4 @@ pytest tests/ -v
 - Architecture: [docs/architecture.md](docs/architecture.md)
 - Agent design: [docs/agents.md](docs/agents.md)
 - Integrations: [docs/integrations.md](docs/integrations.md)
-- Walkthrough video: https://youtu.be/mYArS740qiI
+- Walkthrough video: https://www.youtube.com/watch?v=qNmU3ZQKHNg
