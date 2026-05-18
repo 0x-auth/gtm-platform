@@ -95,7 +95,7 @@ async function runProspect() {
 
   document.getElementById('runBtn').disabled = true;
   document.getElementById('status').textContent = '';
-  document.getElementById('status').innerHTML = '<span class="spinner"></span> Running prospect loop…';
+  const _s = document.getElementById('status'); _s.textContent = ''; const _sp = document.createElement('span'); _sp.className = 'spinner'; _s.appendChild(_sp); _s.appendChild(document.createTextNode(' Running prospect loop…'));
   document.getElementById('metrics').style.display = 'none';
   document.getElementById('traceCard').style.display = 'none';
 
