@@ -55,11 +55,11 @@ The agent runs 6 steps in order:
 
 ## Seeded demo environment
 
-On first run the platform auto-seeds two accounts:
-- **Rippling** (rippling.com) - ICP score 0.92, 3 contacts, 4 signals
-- **Linear** (linear.app) - ICP score 0.87, 2 contacts, 3 signals
+On first run the platform auto-seeds the full demo environment:
 
-Reviewers can immediately run the Prospect loop on these or any new domain.
+**10 companies** (Rippling, Linear, Notion, Vercel, Retool, Loom, Figma, Airtable, Intercom, Segment) with ICP scores ranging from 0.74 to 0.92, 16 contacts, 21 signals, 2 ICP profiles (Enterprise SaaS, Growth Stage Tech), and 3 personas (VP Sales, CRO, Head of RevOps).
+
+Reviewers can immediately run the Prospect loop on any of these domains or any new domain.
 
 ## Repository map
 
@@ -81,15 +81,35 @@ pip install pytest pytest-asyncio httpx
 pytest tests/ -v
 ```
 
-## What's deliberately not built
+## What's built vs what's stubbed
 
-- No mock data - every Serper call hits the real API
-- No fake LLM responses - every agent step uses real Claude Haiku
-- No hardcoded email templates - the agent drafts each email from the actual signal it found
-- Multi-tenancy via `account_id` isolation at the DB layer (every table foreign-keys to accounts)
+### Built (fully functional)
+- Prospect loop: search -> score ICP -> save contact -> draft email -> send (6 steps, real APIs)
+- ReAct agent loop with THOUGHT/ACTION/OBSERVATION trace logged per step
+- Multi-tenant SQLite data model (accounts, contacts, signals, opportunities, icp_profiles)
+- Serper integration: real Google search results for news and contact discovery
+- Gmail OAuth2 integration: real email sending via Gmail API
+- FastAPI REST endpoints with Pydantic validation
+- Vanilla JS UI with real-time agent trace viewer
+- 26 integration tests covering data model, agent, API, multi-tenancy
+- Seeded demo data: 10 companies, 10+ contacts, 10+ signals, 2 ICP profiles, 3 personas
+
+### Stubbed / not in iteration 1
+- Follow-up sequences (opportunities.stage field exists, sequences table not built yet)
+- Reply tracking (Gmail thread polling not implemented)
+- CRM pipeline view (kanban board not built)
+- Slack notifications (integration pattern documented, not wired)
+- Multi-step outreach cadences
+
+### Deliberate decisions
+- SQLite over PostgreSQL: runs on reviewer machine with one command, PostgreSQL-compatible (one import change in models.py)
+- Claude Haiku over GPT-4: 10x cheaper, full prospect run under $0.01
+- Vanilla JS over React: no build step, loads instantly
+- No mock data: every Serper call hits real API, every agent step uses real Claude Haiku
 
 ## Links
 
 - Architecture: [docs/architecture.md](docs/architecture.md)
 - Agent design: [docs/agents.md](docs/agents.md)
 - Integrations: [docs/integrations.md](docs/integrations.md)
+- Walkthrough video: https://youtu.be/mYArS740qiI
