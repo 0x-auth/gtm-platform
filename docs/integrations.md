@@ -113,7 +113,8 @@ def send_slack_notification(channel: str, message: str) -> dict:
     payload = json.dumps({"channel": channel, "text": message}).encode()
     req = urllib.request.Request(webhook_url, data=payload,
                                   headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=10) as r:
+    ctx = ssl.create_default_context()
+    with urllib.request.urlopen(req, timeout=10, context=ctx) as r:
         return {"success": True, "status": r.status}
 ```
 

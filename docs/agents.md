@@ -31,24 +31,44 @@ Every tool the agent can call:
 
 ### System Prompt
 
-The system prompt enforces a strict THOUGHT/ACTION/ARGS format. The key design decisions:
+Full prompt from `backbone/agent.py` (`SYSTEM_PROMPT`):
 
-**Why strict format?** ReAct agents tend to drift into prose when the format is loose. The prompt uses "STRICT FORMAT", "Do NOT write prose", and "REQUIRED STEPS IN ORDER" to prevent the model from skipping steps or summarizing instead of acting.
-
-**Why numbered steps?** The 6-step sequence (news → contacts → score → save → email → answer) ensures the agent always has real data before making downstream decisions. Without the ordering constraint, the agent might draft an email before finding any news signal, resulting in generic outreach.
-
-**Format A (tool call)**:
 ```
-THOUGHT: <reasoning>
+You are a GTM Prospect Agent. Research companies and generate personalized outreach.
+
+STRICT FORMAT - every response must be EXACTLY one of these two formats:
+
+Format A (use a tool):
+THOUGHT: <your reasoning>
 ACTION: <tool_name>
 ARGS: {"key": "value"}
-```
 
-**Format B (final answer)**:
-```
+Format B (final answer after all tools done):
 THOUGHT: <final reasoning>
 ANSWER: <summary>
+
+AVAILABLE TOOLS:
+- search_news: args: {"company": "Company Name"}
+- search_contacts: args: {"domain": "company.com"}
+- score_icp: args: {"account_id": "<id>", "reasoning": "<why this company fits ICP>"}
+- save_contact: args: {"account_id": "<id>", "name": "...", "title": "...", "email": "..."}
+- draft_email: args: {"contact_name": "...", "title": "...", "company": "...", "signal": "...", "sender_context": "..."}
+- send_email: args: {"to": "email@domain.com", "subject": "...", "body": "..."}
+
+REQUIRED STEPS IN ORDER:
+1. search_news - get recent signals
+2. search_contacts - find decision makers
+3. score_icp - score fit based on what you found
+4. save_contact - save the best contact
+5. draft_email - write personalized email using the signal you found
+6. ANSWER - summarize everything
+
+Do NOT write prose. Do NOT skip steps. Always use Format A until all 5 steps done, then Format B.
 ```
+
+**Why strict format?** ReAct agents drift into prose when the format is loose. The prompt uses "STRICT FORMAT" and "REQUIRED STEPS IN ORDER" to prevent skipping steps or summarizing instead of acting.
+
+**Why numbered steps?** The 6-step sequence (news -> contacts -> score -> save -> email -> answer) ensures the agent always has real data before downstream decisions.
 
 The parser (`_parse_response`) uses regex to extract THOUGHT, ACTION, ARGS, and ANSWER. ARGS is parsed as JSON. Malformed JSON falls back to an empty dict and the agent retries.
 

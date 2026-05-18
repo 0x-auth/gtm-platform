@@ -111,7 +111,15 @@ Ideal Customer Profile definitions. Multiple profiles supported.
 
 ### Multi-tenancy approach
 
-Every query is scoped by `account_id`. The agent receives an `account_id` at initialization and all tool calls pass it through. Adding a second tenant means inserting a new account row - no schema changes needed. Indexing on `account_id` and `domain` ensures queries stay O(log n) as accounts grow from 10 to 10 million.
+Tenant isolation is enforced at three layers:
+
+**Data layer**: Every table row is scoped by `account_id`. All queries in `models.py` include `WHERE account_id = ?`. No query returns data across tenant boundaries. A tenant can only ever see its own accounts, contacts, signals, and opportunities.
+
+**Service layer**: `GTMAgent` receives an `account_id` at initialization and passes it through every `_call_tool()` invocation. The agent cannot address another tenant's data because it only knows its own `account_id`. Tool functions in `agent.py` pass `account_id` explicitly - it is never inferred from context.
+
+**Request layer**: The `POST /api/prospect` endpoint generates a fresh `account_id` (UUID prefix) per domain on first run, or retrieves the existing one via `upsert_account(domain=...)`. Requests are stateless - no session or cookie carries tenant identity. In a production deployment, the request layer would validate a JWT and extract the tenant ID before creating the agent, replacing the current domain-as-tenant-key approach with proper auth-gated isolation.
+
+Adding a second tenant means inserting a new account row - no schema changes needed. Indexing on `account_id` and `domain` ensures queries stay O(log n) as data grows.
 
 ### Scaling considerations
 

@@ -1,11 +1,14 @@
 """Real integrations: Serper (search) + Gmail (send)."""
 import os
 import json
+import ssl
 import urllib.request
 import urllib.parse
 import base64
 from pathlib import Path
 from email.mime.text import MIMEText
+
+_SSL_CTX = ssl.create_default_context()
 
 SERPER_KEY = os.environ.get("SERPER_API_KEY", "")
 GMAIL_TOKEN_PATH = Path(__file__).parent.parent / "data" / "gmail_token.json"
@@ -29,7 +32,7 @@ def search(query: str, num: int = 5) -> list[dict]:
         data=payload,
         headers={"X-API-KEY": SERPER_KEY, "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=10) as r:
+    with urllib.request.urlopen(req, timeout=10, context=_SSL_CTX) as r:
         data = json.loads(r.read())
     results = []
     for item in data.get("organic", [])[:num]:

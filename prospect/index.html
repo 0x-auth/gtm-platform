@@ -94,7 +94,8 @@ async function runProspect() {
   const sendTo = document.getElementById('sendTo').value.trim();
 
   document.getElementById('runBtn').disabled = true;
-  document.getElementById('status').innerHTML = '<span class="spinner"></span> Running prospect loop...';
+  document.getElementById('status').textContent = '';
+  document.getElementById('status').innerHTML = '<span class="spinner"></span> Running prospect loop…';
   document.getElementById('metrics').style.display = 'none';
   document.getElementById('traceCard').style.display = 'none';
 
@@ -133,7 +134,13 @@ async function loadTrace(id) {
   const container = document.getElementById('traceSteps');
   container.innerHTML = '';
 
-  if (!Array.isArray(steps)) { container.innerHTML = '<div style="color:#e05050">Trace not found</div>'; return; }
+  if (!Array.isArray(steps)) {
+    const msg = document.createElement('div');
+    msg.style.color = '#e05050';
+    msg.textContent = 'Trace not found';
+    container.appendChild(msg);
+    return;
+  }
   steps.forEach(step => {
     const div = document.createElement('div');
     const typeClass = {
@@ -143,7 +150,14 @@ async function loadTrace(id) {
     div.className = `step ${typeClass}`;
     const label = {'LLM': 'AGENT', 'TOOL_CALL': 'TOOL', 'OBSERVATION': 'RESULT', 'FINAL': 'ANSWER', 'START': 'START'}[step.type] || step.type;
     const content = step.content || (step.tool ? `${step.tool}(${JSON.stringify(step.args || {})})` : '');
-    div.innerHTML = `<div class="step-type">${label}</div><div class="step-content">${content.slice(0,500)}</div>`;
+    const typeEl = document.createElement('div');
+    typeEl.className = 'step-type';
+    typeEl.textContent = label;
+    const contentEl = document.createElement('div');
+    contentEl.className = 'step-content';
+    contentEl.textContent = content.slice(0, 500);
+    div.appendChild(typeEl);
+    div.appendChild(contentEl);
     container.appendChild(div);
   });
 
@@ -154,14 +168,35 @@ async function loadPastTraces() {
   const res = await fetch('/api/traces');
   const traces = await res.json();
   const container = document.getElementById('pastTraces');
-  if (!traces.length) { container.innerHTML = '<div style="color:#666;font-size:13px">No runs yet</div>'; return; }
-  container.innerHTML = traces.map(t => `
-    <div class="trace-item" onclick="loadTrace('${t.id}')">
-      <span class="badge badge-blue">${t.id}</span>
-      <strong style="margin-left:8px">${t.domain}</strong>
-      <span style="color:#666;font-size:12px;margin-left:8px">${t.steps} steps</span>
-      <div style="color:#666;font-size:12px;margin-top:4px">${t.summary}</div>
-    </div>`).join('');
+  if (!traces.length) {
+    const msg = document.createElement('div');
+    msg.style.cssText = 'color:#666;font-size:13px';
+    msg.textContent = 'No runs yet';
+    container.appendChild(msg);
+    return;
+  }
+  traces.forEach(t => {
+    const item = document.createElement('div');
+    item.className = 'trace-item';
+    item.onclick = () => loadTrace(t.id);
+    const badge = document.createElement('span');
+    badge.className = 'badge badge-blue';
+    badge.textContent = t.id;
+    const name = document.createElement('strong');
+    name.style.marginLeft = '8px';
+    name.textContent = t.domain;
+    const stepsEl = document.createElement('span');
+    stepsEl.style.cssText = 'color:#666;font-size:12px;margin-left:8px';
+    stepsEl.textContent = t.steps + ' steps';
+    const summary = document.createElement('div');
+    summary.style.cssText = 'color:#666;font-size:12px;margin-top:4px';
+    summary.textContent = t.summary;
+    item.appendChild(badge);
+    item.appendChild(name);
+    item.appendChild(stepsEl);
+    item.appendChild(summary);
+    container.appendChild(item);
+  });
 }
 
 loadPastTraces();
