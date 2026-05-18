@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GTM Platform - Prospect</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
+  header { padding: 20px 32px; border-bottom: 1px solid #1e1e1e; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 600; color: #fff; }
+  header span { font-size: 12px; color: #666; background: #1a1a1a; padding: 2px 8px; border-radius: 4px; }
+  .container { max-width: 900px; margin: 40px auto; padding: 0 24px; }
+  .card { background: #111; border: 1px solid #1e1e1e; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .card h2 { font-size: 14px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+  .input-row { display: flex; gap: 12px; }
+  input[type=text] { flex: 1; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 10px 14px; color: #fff; font-size: 14px; outline: none; }
+  input[type=text]:focus { border-color: #4a9eff; }
+  button { background: #4a9eff; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  button:hover { background: #3a8eef; }
+  button:disabled { background: #2a2a2a; color: #666; cursor: not-allowed; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #0a2a1a; color: #3dba6f; border: 1px solid #1a4a2a; }
+  .badge-blue { background: #0a1a2a; color: #4a9eff; border: 1px solid #1a2a4a; }
+  .badge-yellow { background: #2a1a0a; color: #e0a030; border: 1px solid #4a2a0a; }
+  .step { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #1a1a1a; }
+  .step:last-child { border-bottom: none; }
+  .step-type { width: 90px; font-size: 11px; font-weight: 600; color: #666; flex-shrink: 0; padding-top: 1px; }
+  .step-content { font-size: 13px; color: #ccc; line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
+  .step-llm .step-type { color: #9b59b6; }
+  .step-tool .step-type { color: #4a9eff; }
+  .step-obs .step-type { color: #3dba6f; }
+  .step-final .step-type { color: #e0a030; }
+  .metric { text-align: center; }
+  .metric-val { font-size: 28px; font-weight: 700; color: #fff; }
+  .metric-label { font-size: 11px; color: #666; margin-top: 4px; }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #444; border-top-color: #4a9eff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .trace-item { padding: 10px 0; border-bottom: 1px solid #1a1a1a; cursor: pointer; }
+  .trace-item:hover { color: #4a9eff; }
+  .trace-item:last-child { border-bottom: none; }
+  #status { font-size: 13px; color: #4a9eff; min-height: 20px; margin-top: 8px; }
+  .signal { padding: 8px 0; border-bottom: 1px solid #1a1a1a; font-size: 13px; }
+  .signal:last-child { border-bottom: none; }
+  .signal-type { color: #666; font-size: 11px; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>GTM Platform</h1>
+  <span>AI-Native Prospect Loop</span>
+</header>
+
+<div class="container">
+
+  <!-- Prospect Input -->
+  <div class="card">
+    <h2>Prospect a Company</h2>
+    <div class="input-row">
+      <input type="text" id="domain" placeholder="Enter company domain (e.g. stripe.com)" />
+      <input type="text" id="sendTo" placeholder="Send email to (optional)" style="flex:0.6" />
+      <button id="runBtn" onclick="runProspect()">Run Prospect Loop</button>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics" id="metrics" style="display:none">
+    <div class="card metric"><div class="metric-val" id="m-icp">-</div><div class="metric-label">ICP Score</div></div>
+    <div class="card metric"><div class="metric-val" id="m-contacts">-</div><div class="metric-label">Contacts Found</div></div>
+    <div class="card metric"><div class="metric-val" id="m-signals">-</div><div class="metric-label">Signals</div></div>
+    <div class="card metric"><div class="metric-val" id="m-steps">-</div><div class="metric-label">Agent Steps</div></div>
+  </div>
+
+  <!-- Agent Trace -->
+  <div class="card" id="traceCard" style="display:none">
+    <h2>Agent Reasoning Trace</h2>
+    <div id="traceSteps"></div>
+  </div>
+
+  <!-- Past Traces -->
+  <div class="card">
+    <h2>Past Runs</h2>
+    <div id="pastTraces"><div style="color:#666;font-size:13px">Loading...</div></div>
+  </div>
+
+</div>
+
+<script>
+async function runProspect() {
+  const domain = document.getElementById('domain').value.trim();
+  if (!domain) return;
+  const sendTo = document.getElementById('sendTo').value.trim();
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('status').innerHTML = '<span class="spinner"></span> Running prospect loop...';
+  document.getElementById('metrics').style.display = 'none';
+  document.getElementById('traceCard').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/prospect', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({domain, send_to: sendTo || null})
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('status').textContent = 'Error: ' + (data.detail || JSON.stringify(data));
+      document.getElementById('runBtn').disabled = false;
+      return;
+    }
+
+    document.getElementById('m-icp').textContent = (data.icp_score * 100).toFixed(0) + '%';
+    document.getElementById('m-contacts').textContent = data.contacts_found;
+    document.getElementById('m-signals').textContent = data.signals;
+    document.getElementById('m-steps').textContent = data.steps;
+    document.getElementById('metrics').style.display = 'grid';
+
+    if (data.trace_id) await loadTrace(data.trace_id);
+    document.getElementById('status').textContent = 'Done - trace saved: ' + data.trace_id;
+    loadPastTraces();
+  } catch(e) {
+    document.getElementById('status').textContent = 'Error: ' + e.message;
+  }
+  document.getElementById('runBtn').disabled = false;
+}
+
+async function loadTrace(id) {
+  const res = await fetch('/api/traces/' + id);
+  const steps = await res.json();
+  const container = document.getElementById('traceSteps');
+  container.innerHTML = '';
+
+  if (!Array.isArray(steps)) { container.innerHTML = '<div style="color:#e05050">Trace not found</div>'; return; }
+  steps.forEach(step => {
+    const div = document.createElement('div');
+    const typeClass = {
+      'LLM': 'step-llm', 'TOOL_CALL': 'step-tool',
+      'OBSERVATION': 'step-obs', 'FINAL': 'step-final'
+    }[step.type] || '';
+    div.className = `step ${typeClass}`;
+    const label = {'LLM': 'AGENT', 'TOOL_CALL': 'TOOL', 'OBSERVATION': 'RESULT', 'FINAL': 'ANSWER', 'START': 'START'}[step.type] || step.type;
+    const content = step.content || (step.tool ? `${step.tool}(${JSON.stringify(step.args || {})})` : '');
+    div.innerHTML = `<div class="step-type">${label}</div><div class="step-content">${content.slice(0,500)}</div>`;
+    container.appendChild(div);
+  });
+
+  document.getElementById('traceCard').style.display = 'block';
+}
+
+async function loadPastTraces() {
+  const res = await fetch('/api/traces');
+  const traces = await res.json();
+  const container = document.getElementById('pastTraces');
+  if (!traces.length) { container.innerHTML = '<div style="color:#666;font-size:13px">No runs yet</div>'; return; }
+  container.innerHTML = traces.map(t => `
+    <div class="trace-item" onclick="loadTrace('${t.id}')">
+      <span class="badge badge-blue">${t.id}</span>
+      <strong style="margin-left:8px">${t.domain}</strong>
+      <span style="color:#666;font-size:12px;margin-left:8px">${t.steps} steps</span>
+      <div style="color:#666;font-size:12px;margin-top:4px">${t.summary}</div>
+    </div>`).join('');
+}
+
+loadPastTraces();
+</script>
+</body>
+</html>

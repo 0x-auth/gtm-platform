@@ -1,0 +1,94 @@
+"""Real integrations: Serper (search) + Gmail (send)."""
+import os
+import json
+import urllib.request
+import urllib.parse
+import base64
+from pathlib import Path
+from email.mime.text import MIMEText
+
+SERPER_KEY = os.environ.get("SERPER_API_KEY", "")
+GMAIL_TOKEN_PATH = Path(__file__).parent.parent / "data" / "gmail_token.json"
+GMAIL_CRED_PATH = Path(
+    os.environ.get(
+        "GMAIL_CRED_PATH",
+        str(Path.home() / "Downloads/client_secret_cred/client_secret_60240458334-gurvfrv2vlbh3vl4d1puhiqri3m6gcjs.apps.googleusercontent.com.json")
+    )
+)
+
+
+# ── Serper ───────────────────────────────────────────────────────────────────
+
+def search(query: str, num: int = 5) -> list[dict]:
+    """Search the web via Serper. Returns list of {title, link, snippet}."""
+    if not SERPER_KEY:
+        return [{"title": "Serper key missing", "link": "", "snippet": "Set SERPER_API_KEY"}]
+    payload = json.dumps({"q": query, "num": num}).encode()
+    req = urllib.request.Request(
+        "https://google.serper.dev/search",
+        data=payload,
+        headers={"X-API-KEY": SERPER_KEY, "Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=10) as r:
+        data = json.loads(r.read())
+    results = []
+    for item in data.get("organic", [])[:num]:
+        results.append({
+            "title": item.get("title", ""),
+            "link": item.get("link", ""),
+            "snippet": item.get("snippet", ""),
+        })
+    return results
+
+
+def search_news(company: str) -> list[dict]:
+    return search(f"{company} news funding product launch 2025 2026", num=5)
+
+
+def search_contacts(domain: str) -> list[dict]:
+    return search(f"site:linkedin.com/in {domain} CEO CTO VP Head Director", num=8)
+
+
+# ── Gmail ────────────────────────────────────────────────────────────────────
+
+def _get_gmail_service():
+    """Get authenticated Gmail service using stored token."""
+    try:
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        from googleapiclient.discovery import build
+        import google.auth
+
+        SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
+        creds = None
+
+        if GMAIL_TOKEN_PATH.exists():
+            creds = Credentials.from_authorized_user_file(str(GMAIL_TOKEN_PATH), SCOPES)
+
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                from google_auth_oauthlib.flow import InstalledAppFlow
+                flow = InstalledAppFlow.from_client_secrets_file(str(GMAIL_CRED_PATH), SCOPES)
+                creds = flow.run_local_server(port=0)
+            GMAIL_TOKEN_PATH.parent.mkdir(exist_ok=True)
+            GMAIL_TOKEN_PATH.write_text(creds.to_json())
+
+        return build("gmail", "v1", credentials=creds)
+    except ImportError as e:
+        raise RuntimeError(f"Gmail deps missing: {e}. Run: pip install google-api-python-client google-auth-oauthlib")
+
+
+def send_email(to: str, subject: str, body: str) -> dict:
+    """Send an email via Gmail API. Returns {success, message_id}."""
+    try:
+        service = _get_gmail_service()
+        msg = MIMEText(body)
+        msg["to"] = to
+        msg["subject"] = subject
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        sent = service.users().messages().send(userId="me", body={"raw": raw}).execute()
+        return {"success": True, "message_id": sent["id"], "to": to}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
