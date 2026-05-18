@@ -1,5 +1,7 @@
 # GTM Platform - AI-Native Go-to-Market
 
+**Walkthrough video:** https://youtu.be/mYArS740qiI
+
 An AI-native platform that automates the full prospect loop: research a company, find decision makers, score ICP fit, draft personalized outreach, and send via Gmail - all driven by an autonomous agent.
 
 ## What this is
