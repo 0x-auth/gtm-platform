@@ -1,4 +1,4 @@
-"""Seed demo data - 10 companies, 10+ contacts, 10+ signals, 2 ICPs, 3 personas."""
+"""Seed demo data - 10 companies, 21 contacts, 20+ signals, 2 ICPs, 3 personas."""
 from .models import init_db, upsert_account, upsert_contact, add_signal, update_icp_score
 
 import sqlite3
@@ -8,17 +8,19 @@ DB_PATH = Path(__file__).parent.parent / "data" / "gtm.db"
 
 
 def _upsert_icp(name: str, industries: str, sizes: str, titles: str, keywords: str):
+    import uuid
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    existing = conn.execute("SELECT id FROM icp_profiles WHERE name=?", (name,)).fetchone()
-    if not existing:
-        import uuid
-        conn.execute(
-            "INSERT INTO icp_profiles (id, name, industries, sizes, titles, keywords) VALUES (?,?,?,?,?,?)",
-            (str(uuid.uuid4()), name, industries, sizes, titles, keywords)
-        )
-        conn.commit()
-    conn.close()
+    try:
+        existing = conn.execute("SELECT id FROM icp_profiles WHERE name=?", (name,)).fetchone()
+        if not existing:
+            conn.execute(
+                "INSERT INTO icp_profiles (id, name, industries, sizes, titles, keywords) VALUES (?,?,?,?,?,?)",
+                (str(uuid.uuid4()), name, industries, sizes, titles, keywords)
+            )
+            conn.commit()
+    finally:
+        conn.close()
 
 
 def seed():
@@ -75,6 +77,7 @@ def seed():
     # ── Company 4 - Vercel ────────────────────────────────────────────────────
     a4 = upsert_account(domain="vercel.com", name="Vercel", industry="Developer Tools", size="200-1000")
     upsert_contact(a4, "Guillermo Rauch", "CEO", "guillermo@vercel.com", "linkedin.com/in/guillermo-rauch")
+    upsert_contact(a4, "Malte Ubl", "CTO", "malte@vercel.com", "linkedin.com/in/malteubl")
     add_signal(a4, "product_launch", "Vercel launched AI SDK 4.0 with multi-model support", "Hacker News")
     add_signal(a4, "hiring", "Vercel hiring senior enterprise AEs in EMEA and APAC", "LinkedIn")
     update_icp_score(a4, 0.81)
@@ -82,6 +85,7 @@ def seed():
     # ── Company 5 - Retool ────────────────────────────────────────────────────
     a5 = upsert_account(domain="retool.com", name="Retool", industry="Low-Code SaaS", size="200-1000")
     upsert_contact(a5, "David Hsu", "CEO", "david@retool.com", "linkedin.com/in/davidhsuretool")
+    upsert_contact(a5, "Alex Chen", "VP Engineering", "alex@retool.com", "linkedin.com/in/alexchenretool")
     add_signal(a5, "funding", "Retool raised $45M Series C led by Sequoia", "TechCrunch")
     add_signal(a5, "product_launch", "Retool Mobile GA - build internal apps for iOS and Android", "Blog")
     update_icp_score(a5, 0.78)
@@ -89,6 +93,7 @@ def seed():
     # ── Company 6 - Loom ──────────────────────────────────────────────────────
     a6 = upsert_account(domain="loom.com", name="Loom", industry="Productivity SaaS", size="200-500")
     upsert_contact(a6, "Joe Thomas", "CEO", "joe@loom.com", "linkedin.com/in/joethomas")
+    upsert_contact(a6, "Shahed Khan", "VP Product", "shahed@loom.com", "linkedin.com/in/shahedkhan")
     add_signal(a6, "product_launch", "Loom AI launched auto-generated video summaries", "ProductHunt")
     add_signal(a6, "growth", "Loom surpassed 25M users globally", "Twitter")
     update_icp_score(a6, 0.74)
@@ -104,6 +109,7 @@ def seed():
     # ── Company 8 - Airtable ─────────────────────────────────────────────────
     a8 = upsert_account(domain="airtable.com", name="Airtable", industry="Low-Code SaaS", size="500-2000")
     upsert_contact(a8, "Howie Liu", "CEO", "howie@airtable.com", "linkedin.com/in/howieliu")
+    upsert_contact(a8, "Andrew Ofstad", "CPO", "andrew@airtable.com", "linkedin.com/in/andrewofstad")
     add_signal(a8, "funding", "Airtable raised $270M Series F at $11B valuation", "TechCrunch")
     add_signal(a8, "product_launch", "Airtable AI launched formula generation and field summarization", "Blog")
     update_icp_score(a8, 0.76)
@@ -119,6 +125,7 @@ def seed():
     # ── Company 10 - Segment ─────────────────────────────────────────────────
     a10 = upsert_account(domain="segment.com", name="Segment", industry="Data Infrastructure", size="500-2000")
     upsert_contact(a10, "Peter Reinhardt", "CEO", "peter@segment.com", "linkedin.com/in/peterreinhardt")
+    upsert_contact(a10, "Ilya Volodarsky", "CTO", "ilya@segment.com", "linkedin.com/in/ilyavolodarsky")
     add_signal(a10, "product_launch", "Segment launched Unify - identity resolution for B2B data", "Blog")
     add_signal(a10, "hiring", "Segment hiring data engineers and solutions architects", "LinkedIn")
     update_icp_score(a10, 0.77)

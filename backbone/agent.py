@@ -206,12 +206,21 @@ Abhishek
 
         max_iter = 12
         for i in range(max_iter):
-            response = self.client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=1024,
-                system=SYSTEM_PROMPT,
-                messages=messages,
-            )
+            try:
+                response = self.client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=1024,
+                    system=SYSTEM_PROMPT,
+                    messages=messages,
+                    metadata={"user_id": domain},
+                )
+            except anthropic.RateLimitError as e:
+                self._log({"type": "ERROR", "content": f"Rate limit: {e}. Retrying after 60s."})
+                import time; time.sleep(60)
+                continue
+            except anthropic.APIError as e:
+                self._log({"type": "ERROR", "content": f"Anthropic API error: {e}"})
+                break
             text = response.content[0].text
             self._log({"type": "LLM", "content": text, "iteration": i + 1})
 
