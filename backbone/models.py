@@ -1,7 +1,6 @@
 """GTM data model - accounts, contacts, opportunities, signals, ICPs."""
 import sqlite3
-import json
-from datetime import datetime
+import uuid
 from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "data" / "gtm.db"
@@ -16,175 +15,234 @@ def get_conn():
 
 def init_db():
     conn = get_conn()
-    conn.executescript("""
-    CREATE TABLE IF NOT EXISTS accounts (
-        id          TEXT PRIMARY KEY,
-        domain      TEXT UNIQUE NOT NULL,
-        name        TEXT NOT NULL,
-        industry    TEXT,
-        size        TEXT,
-        icp_score   REAL DEFAULT 0.0,
-        signals     TEXT DEFAULT '[]',
-        created_at  TEXT DEFAULT (datetime('now')),
-        updated_at  TEXT DEFAULT (datetime('now'))
-    );
+    try:
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS accounts (
+            id          TEXT PRIMARY KEY,
+            domain      TEXT UNIQUE NOT NULL,
+            name        TEXT NOT NULL,
+            industry    TEXT,
+            size        TEXT,
+            icp_score   REAL DEFAULT 0.0,
+            signals     TEXT DEFAULT '[]',
+            created_at  TEXT DEFAULT (datetime('now')),
+            updated_at  TEXT DEFAULT (datetime('now'))
+        );
 
-    CREATE TABLE IF NOT EXISTS contacts (
-        id          TEXT PRIMARY KEY,
-        account_id  TEXT REFERENCES accounts(id),
-        name        TEXT NOT NULL,
-        title       TEXT,
-        email       TEXT,
-        linkedin    TEXT,
-        score       REAL DEFAULT 0.0,
-        created_at  TEXT DEFAULT (datetime('now'))
-    );
+        CREATE TABLE IF NOT EXISTS contacts (
+            id          TEXT PRIMARY KEY,
+            account_id  TEXT REFERENCES accounts(id),
+            name        TEXT NOT NULL,
+            title       TEXT,
+            email       TEXT,
+            linkedin    TEXT,
+            score       REAL DEFAULT 0.0,
+            created_at  TEXT DEFAULT (datetime('now'))
+        );
 
-    CREATE TABLE IF NOT EXISTS opportunities (
-        id          TEXT PRIMARY KEY,
-        account_id  TEXT REFERENCES accounts(id),
-        contact_id  TEXT REFERENCES contacts(id),
-        stage       TEXT DEFAULT 'prospecting',
-        signal      TEXT,
-        outreach    TEXT,
-        sent_at     TEXT,
-        created_at  TEXT DEFAULT (datetime('now'))
-    );
+        CREATE TABLE IF NOT EXISTS opportunities (
+            id          TEXT PRIMARY KEY,
+            account_id  TEXT REFERENCES accounts(id),
+            contact_id  TEXT REFERENCES contacts(id),
+            stage       TEXT DEFAULT 'prospecting',
+            signal      TEXT,
+            outreach    TEXT,
+            sent_at     TEXT,
+            created_at  TEXT DEFAULT (datetime('now'))
+        );
 
-    CREATE TABLE IF NOT EXISTS signals (
-        id          TEXT PRIMARY KEY,
-        account_id  TEXT REFERENCES accounts(id),
-        type        TEXT NOT NULL,
-        content     TEXT NOT NULL,
-        source      TEXT,
-        captured_at TEXT DEFAULT (datetime('now'))
-    );
+        CREATE TABLE IF NOT EXISTS signals (
+            id          TEXT PRIMARY KEY,
+            account_id  TEXT REFERENCES accounts(id),
+            type        TEXT NOT NULL,
+            content     TEXT NOT NULL,
+            source      TEXT,
+            captured_at TEXT DEFAULT (datetime('now'))
+        );
 
-    CREATE TABLE IF NOT EXISTS icp_profiles (
-        id          TEXT PRIMARY KEY,
-        name        TEXT NOT NULL,
-        industries  TEXT DEFAULT '[]',
-        sizes       TEXT DEFAULT '[]',
-        titles      TEXT DEFAULT '[]',
-        keywords    TEXT DEFAULT '[]',
-        created_at  TEXT DEFAULT (datetime('now'))
-    );
-    """)
-    conn.commit()
-    conn.close()
+        CREATE TABLE IF NOT EXISTS icp_profiles (
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL,
+            industries  TEXT DEFAULT '[]',
+            sizes       TEXT DEFAULT '[]',
+            titles      TEXT DEFAULT '[]',
+            keywords    TEXT DEFAULT '[]',
+            created_at  TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_contacts_account ON contacts(account_id);
+        CREATE INDEX IF NOT EXISTS idx_signals_account ON signals(account_id);
+        CREATE INDEX IF NOT EXISTS idx_opportunities_account ON opportunities(account_id);
+        CREATE INDEX IF NOT EXISTS idx_accounts_domain ON accounts(domain);
+        """)
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def upsert_account(domain, name, industry=None, size=None):
-    import uuid
     conn = get_conn()
-    existing = conn.execute("SELECT id FROM accounts WHERE domain=?", (domain,)).fetchone()
-    if existing:
-        conn.execute(
-            "UPDATE accounts SET name=?, industry=?, size=?, updated_at=datetime('now') WHERE domain=?",
-            (name, industry, size, domain)
-        )
-        aid = existing["id"]
-    else:
-        aid = str(uuid.uuid4())[:8]
-        conn.execute(
-            "INSERT INTO accounts (id,domain,name,industry,size) VALUES (?,?,?,?,?)",
-            (aid, domain, name, industry, size)
-        )
-    conn.commit()
-    conn.close()
-    return aid
+    try:
+        existing = conn.execute("SELECT id FROM accounts WHERE domain=?", (domain,)).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE accounts SET name=?, industry=?, size=?, updated_at=datetime('now') WHERE domain=?",
+                (name, industry, size, domain)
+            )
+            aid = existing["id"]
+        else:
+            aid = str(uuid.uuid4())[:8]
+            conn.execute(
+                "INSERT INTO accounts (id,domain,name,industry,size) VALUES (?,?,?,?,?)",
+                (aid, domain, name, industry, size)
+            )
+        conn.commit()
+        return aid
+    except sqlite3.Error as e:
+        conn.rollback()
+        raise RuntimeError(f"upsert_account failed for {domain}: {e}") from e
+    finally:
+        conn.close()
 
 
 def upsert_contact(account_id, name, title=None, email=None, linkedin=None):
-    import uuid
     conn = get_conn()
-    existing = conn.execute(
-        "SELECT id FROM contacts WHERE account_id=? AND name=?", (account_id, name)
-    ).fetchone()
-    if existing:
-        conn.execute(
-            "UPDATE contacts SET title=?, email=?, linkedin=? WHERE id=?",
-            (title, email, linkedin, existing["id"])
-        )
-        cid = existing["id"]
-    else:
-        cid = str(uuid.uuid4())[:8]
-        conn.execute(
-            "INSERT INTO contacts (id,account_id,name,title,email,linkedin) VALUES (?,?,?,?,?,?)",
-            (cid, account_id, name, title, email, linkedin)
-        )
-    conn.commit()
-    conn.close()
-    return cid
+    try:
+        existing = conn.execute(
+            "SELECT id FROM contacts WHERE account_id=? AND name=?", (account_id, name)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE contacts SET title=?, email=?, linkedin=? WHERE id=?",
+                (title, email, linkedin, existing["id"])
+            )
+            cid = existing["id"]
+        else:
+            cid = str(uuid.uuid4())[:8]
+            conn.execute(
+                "INSERT INTO contacts (id,account_id,name,title,email,linkedin) VALUES (?,?,?,?,?,?)",
+                (cid, account_id, name, title, email, linkedin)
+            )
+        conn.commit()
+        return cid
+    except sqlite3.Error as e:
+        conn.rollback()
+        raise RuntimeError(f"upsert_contact failed for {name}: {e}") from e
+    finally:
+        conn.close()
 
 
 def add_signal(account_id, type_, content, source=None):
-    import uuid
     conn = get_conn()
-    sid = str(uuid.uuid4())[:8]
-    conn.execute(
-        "INSERT INTO signals (id,account_id,type,content,source) VALUES (?,?,?,?,?)",
-        (sid, account_id, type_, content, source)
-    )
-    conn.commit()
-    conn.close()
-    return sid
+    try:
+        sid = str(uuid.uuid4())[:8]
+        conn.execute(
+            "INSERT INTO signals (id,account_id,type,content,source) VALUES (?,?,?,?,?)",
+            (sid, account_id, type_, content, source)
+        )
+        conn.commit()
+        return sid
+    except sqlite3.Error as e:
+        conn.rollback()
+        raise RuntimeError(f"add_signal failed: {e}") from e
+    finally:
+        conn.close()
 
 
 def add_opportunity(account_id, contact_id, stage, signal, outreach):
-    import uuid
     conn = get_conn()
-    oid = str(uuid.uuid4())[:8]
-    conn.execute(
-        "INSERT INTO opportunities (id,account_id,contact_id,stage,signal,outreach) VALUES (?,?,?,?,?,?)",
-        (oid, account_id, contact_id, stage, signal, outreach)
-    )
-    conn.commit()
-    conn.close()
-    return oid
+    try:
+        oid = str(uuid.uuid4())[:8]
+        conn.execute(
+            "INSERT INTO opportunities (id,account_id,contact_id,stage,signal,outreach) VALUES (?,?,?,?,?,?)",
+            (oid, account_id, contact_id, stage, signal, outreach)
+        )
+        conn.commit()
+        return oid
+    except sqlite3.Error as e:
+        conn.rollback()
+        raise RuntimeError(f"add_opportunity failed: {e}") from e
+    finally:
+        conn.close()
 
 
 def update_icp_score(account_id, score):
     conn = get_conn()
-    conn.execute("UPDATE accounts SET icp_score=?, updated_at=datetime('now') WHERE id=?", (score, account_id))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute(
+            "UPDATE accounts SET icp_score=?, updated_at=datetime('now') WHERE id=?",
+            (score, account_id)
+        )
+        conn.commit()
+    except sqlite3.Error as e:
+        conn.rollback()
+        raise RuntimeError(f"update_icp_score failed: {e}") from e
+    finally:
+        conn.close()
 
 
 def get_account(domain):
     conn = get_conn()
-    row = conn.execute("SELECT * FROM accounts WHERE domain=?", (domain,)).fetchone()
-    conn.close()
-    return dict(row) if row else None
+    try:
+        row = conn.execute("SELECT * FROM accounts WHERE domain=?", (domain,)).fetchone()
+        return dict(row) if row else None
+    except sqlite3.Error:
+        return None
+    finally:
+        conn.close()
 
 
 def get_contacts(account_id):
     conn = get_conn()
-    rows = conn.execute("SELECT * FROM contacts WHERE account_id=? ORDER BY score DESC", (account_id,)).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    try:
+        rows = conn.execute(
+            "SELECT * FROM contacts WHERE account_id=? ORDER BY score DESC", (account_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    except sqlite3.Error:
+        return []
+    finally:
+        conn.close()
 
 
 def get_signals(account_id):
     conn = get_conn()
-    rows = conn.execute(
-        "SELECT * FROM signals WHERE account_id=? ORDER BY captured_at DESC LIMIT 5", (account_id,)
-    ).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    try:
+        rows = conn.execute(
+            "SELECT * FROM signals WHERE account_id=? ORDER BY captured_at DESC LIMIT 5",
+            (account_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    except sqlite3.Error:
+        return []
+    finally:
+        conn.close()
 
 
 def get_opportunity(account_id):
     conn = get_conn()
-    row = conn.execute(
-        "SELECT * FROM opportunities WHERE account_id=? ORDER BY created_at DESC LIMIT 1", (account_id,)
-    ).fetchone()
-    conn.close()
-    return dict(row) if row else None
+    try:
+        row = conn.execute(
+            "SELECT * FROM opportunities WHERE account_id=? ORDER BY created_at DESC LIMIT 1",
+            (account_id,)
+        ).fetchone()
+        return dict(row) if row else None
+    except sqlite3.Error:
+        return None
+    finally:
+        conn.close()
 
 
 def mark_sent(opp_id):
     conn = get_conn()
-    conn.execute("UPDATE opportunities SET sent_at=datetime('now'), stage='outreach_sent' WHERE id=?", (opp_id,))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute(
+            "UPDATE opportunities SET sent_at=datetime('now'), stage='outreach_sent' WHERE id=?",
+            (opp_id,)
+        )
+        conn.commit()
+    except sqlite3.Error as e:
+        conn.rollback()
+        raise RuntimeError(f"mark_sent failed: {e}") from e
+    finally:
+        conn.close()

@@ -2,13 +2,19 @@
 import os
 import json
 import ssl
+import time
 import urllib.request
+import urllib.error
 import urllib.parse
 import base64
 from pathlib import Path
 from email.mime.text import MIMEText
 
 _SSL_CTX = ssl.create_default_context()
+
+# Rate limit tracking — max 10 Serper calls/min (free tier: 2500/month)
+_SERPER_CALL_TIMES: list = []
+_SERPER_RATE_LIMIT = 10
 
 SERPER_KEY = os.environ.get("SERPER_API_KEY", "")
 GMAIL_TOKEN_PATH = Path(__file__).parent.parent / "data" / "gmail_token.json"
@@ -22,18 +28,36 @@ GMAIL_CRED_PATH = Path(
 
 # ── Serper ───────────────────────────────────────────────────────────────────
 
+def _check_rate_limit():
+    """Sliding window rate limit — raises if >_SERPER_RATE_LIMIT calls in last 60s."""
+    now = time.monotonic()
+    _SERPER_CALL_TIMES[:] = [t for t in _SERPER_CALL_TIMES if now - t < 60]
+    if len(_SERPER_CALL_TIMES) >= _SERPER_RATE_LIMIT:
+        raise RuntimeError("Serper rate limit reached (10 calls/min). Retry after 60s.")
+    _SERPER_CALL_TIMES.append(now)
+
+
 def search(query: str, num: int = 5) -> list[dict]:
     """Search the web via Serper. Returns list of {title, link, snippet}."""
     if not SERPER_KEY:
         return [{"title": "Serper key missing", "link": "", "snippet": "Set SERPER_API_KEY"}]
+    try:
+        _check_rate_limit()
+    except RuntimeError as e:
+        return [{"title": "Rate limit", "link": "", "snippet": str(e)}]
     payload = json.dumps({"q": query, "num": num}).encode()
     req = urllib.request.Request(
         "https://google.serper.dev/search",
         data=payload,
         headers={"X-API-KEY": SERPER_KEY, "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=10, context=_SSL_CTX) as r:
-        data = json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req, timeout=10, context=_SSL_CTX) as r:
+            data = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return [{"title": f"Serper HTTP {e.code}", "link": "", "snippet": str(e)}]
+    except urllib.error.URLError as e:
+        return [{"title": "Serper connection error", "link": "", "snippet": str(e)}]
     results = []
     for item in data.get("organic", [])[:num]:
         results.append({

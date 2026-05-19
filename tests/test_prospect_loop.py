@@ -460,5 +460,112 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class TestCrossTenantIsolation(unittest.TestCase):
+    """REQ_02: Verify data from one tenant cannot be accessed by another."""
+
+    def setUp(self):
+        self.db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        self.db_path = self.db_file.name
+        self.db_file.close()
+
+        import backbone.models as models
+        self._orig_db_path = models.DB_PATH
+        models.DB_PATH = Path(self.db_path)
+        models.init_db()
+
+    def tearDown(self):
+        import backbone.models as models
+        models.DB_PATH = self._orig_db_path
+        Path(self.db_path).unlink(missing_ok=True)
+
+    def test_contacts_isolated_by_account(self):
+        """Contacts fetched for account A must not include contacts of account B."""
+        from backbone.models import upsert_account, upsert_contact, get_contacts
+
+        aid_a = upsert_account("tenant-a.com", "Tenant A")
+        aid_b = upsert_account("tenant-b.com", "Tenant B")
+
+        upsert_contact(aid_a, "Alice A", title="CEO", email="alice@tenant-a.com")
+        upsert_contact(aid_b, "Bob B", title="CTO", email="bob@tenant-b.com")
+
+        contacts_a = get_contacts(aid_a)
+        contacts_b = get_contacts(aid_b)
+
+        names_a = {c["name"] for c in contacts_a}
+        names_b = {c["name"] for c in contacts_b}
+
+        self.assertIn("Alice A", names_a)
+        self.assertNotIn("Bob B", names_a)
+        self.assertIn("Bob B", names_b)
+        self.assertNotIn("Alice A", names_b)
+
+    def test_signals_isolated_by_account(self):
+        """Signals fetched for account A must not include signals of account B."""
+        from backbone.models import upsert_account, add_signal, get_signals
+
+        aid_a = upsert_account("signal-a.com", "Signal A")
+        aid_b = upsert_account("signal-b.com", "Signal B")
+
+        add_signal(aid_a, "funding", "Raised $10M Series A", source="news")
+        add_signal(aid_b, "hiring", "Hiring 50 engineers", source="linkedin")
+
+        signals_a = get_signals(aid_a)
+        signals_b = get_signals(aid_b)
+
+        contents_a = {s["content"] for s in signals_a}
+        contents_b = {s["content"] for s in signals_b}
+
+        self.assertIn("Raised $10M Series A", contents_a)
+        self.assertNotIn("Hiring 50 engineers", contents_a)
+        self.assertIn("Hiring 50 engineers", contents_b)
+        self.assertNotIn("Raised $10M Series A", contents_b)
+
+    def test_opportunity_isolated_by_account(self):
+        """Opportunity fetched for account A must not return account B's opportunity."""
+        from backbone.models import upsert_account, upsert_contact, add_opportunity, get_opportunity
+
+        aid_a = upsert_account("opp-a.com", "Opp A")
+        aid_b = upsert_account("opp-b.com", "Opp B")
+        cid_a = upsert_contact(aid_a, "Carol A", title="VP Sales")
+        cid_b = upsert_contact(aid_b, "Dave B", title="CFO")
+
+        add_opportunity(aid_a, cid_a, "prospecting", "funding signal A", "email body A")
+        add_opportunity(aid_b, cid_b, "prospecting", "funding signal B", "email body B")
+
+        opp_a = get_opportunity(aid_a)
+        opp_b = get_opportunity(aid_b)
+
+        self.assertIsNotNone(opp_a)
+        self.assertIsNotNone(opp_b)
+        self.assertEqual(opp_a["account_id"], aid_a)
+        self.assertEqual(opp_b["account_id"], aid_b)
+        self.assertNotEqual(opp_a["id"], opp_b["id"])
+        self.assertIn("signal A", opp_a["signal"])
+        self.assertNotIn("signal B", opp_a["signal"])
+
+    def test_api_account_endpoint_cross_tenant(self):
+        """GET /api/account/<domain> must only return data for that specific domain."""
+        from backbone.models import upsert_account, upsert_contact
+
+        aid_a = upsert_account("api-a.com", "API Tenant A")
+        aid_b = upsert_account("api-b.com", "API Tenant B")
+        upsert_contact(aid_a, "Eve A", title="CEO", email="eve@api-a.com")
+        upsert_contact(aid_b, "Frank B", title="CTO", email="frank@api-b.com")
+
+        try:
+            from fastapi.testclient import TestClient
+            from backbone.api import app
+            client = TestClient(app, raise_server_exceptions=False)
+        except ImportError:
+            self.skipTest("httpx not installed")
+
+        resp_a = client.get("/api/account/api-a.com")
+        self.assertEqual(resp_a.status_code, 200)
+        data_a = resp_a.json()
+        contact_names = {c["name"] for c in data_a.get("contacts", [])}
+        self.assertIn("Eve A", contact_names)
+        self.assertNotIn("Frank B", contact_names)
+
+
 if __name__ == "__main__":
     unittest.main()

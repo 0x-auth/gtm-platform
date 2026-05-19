@@ -19,6 +19,10 @@
   button { background: #4a9eff; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap; }
   button:hover { background: #3a8eef; }
   button:disabled { background: #2a2a2a; color: #666; cursor: not-allowed; }
+  .error-banner { background: #2a0a0a; border: 1px solid #5a1a1a; border-radius: 8px; padding: 12px 16px; margin-top: 12px; display: flex; align-items: center; gap: 12px; }
+  .error-banner span { flex: 1; font-size: 13px; color: #e05050; }
+  .btn-retry { background: #3a1a1a; color: #e05050; border: 1px solid #5a1a1a; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn-retry:hover { background: #5a1a1a; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
   .badge-green { background: #0a2a1a; color: #3dba6f; border: 1px solid #1a4a2a; }
   .badge-blue { background: #0a1a2a; color: #4a9eff; border: 1px solid #1a2a4a; }
@@ -63,6 +67,10 @@
       <button id="runBtn" onclick="runProspect()">Run Prospect Loop</button>
     </div>
     <div id="status"></div>
+    <div id="errorBanner" style="display:none" class="error-banner">
+      <span id="errorMsg"></span>
+      <button class="btn-retry" onclick="retryProspect()">Retry</button>
+    </div>
   </div>
 
   <!-- Metrics -->
@@ -88,11 +96,36 @@
 </div>
 
 <script>
+let _lastDomain = null;
+let _lastSendTo = null;
+
+function showError(msg) {
+  document.getElementById('errorMsg').textContent = msg;
+  document.getElementById('errorBanner').style.display = 'flex';
+  document.getElementById('status').textContent = '';
+}
+
+function clearError() {
+  document.getElementById('errorBanner').style.display = 'none';
+  document.getElementById('errorMsg').textContent = '';
+}
+
+function retryProspect() {
+  if (_lastDomain) {
+    document.getElementById('domain').value = _lastDomain;
+    if (_lastSendTo) document.getElementById('sendTo').value = _lastSendTo;
+    runProspect();
+  }
+}
+
 async function runProspect() {
   const domain = document.getElementById('domain').value.trim();
   if (!domain) return;
   const sendTo = document.getElementById('sendTo').value.trim();
+  _lastDomain = domain;
+  _lastSendTo = sendTo || null;
 
+  clearError();
   document.getElementById('runBtn').disabled = true;
   document.getElementById('status').textContent = '';
   const _s = document.getElementById('status'); _s.textContent = ''; const _sp = document.createElement('span'); _sp.className = 'spinner'; _s.appendChild(_sp); _s.appendChild(document.createTextNode(' Running prospect loop…'));
@@ -108,7 +141,7 @@ async function runProspect() {
     const data = await res.json();
 
     if (!res.ok) {
-      document.getElementById('status').textContent = 'Error: ' + (data.detail || JSON.stringify(data));
+      showError('Error: ' + (data.detail || JSON.stringify(data)));
       document.getElementById('runBtn').disabled = false;
       return;
     }
@@ -123,7 +156,7 @@ async function runProspect() {
     document.getElementById('status').textContent = 'Done - trace saved: ' + data.trace_id;
     loadPastTraces();
   } catch(e) {
-    document.getElementById('status').textContent = 'Error: ' + e.message;
+    showError('Network error: ' + e.message + '. Check your connection and try again.');
   }
   document.getElementById('runBtn').disabled = false;
 }
