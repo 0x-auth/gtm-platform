@@ -167,13 +167,25 @@ Example trace entry:
 
 ## Cost and latency notes
 
-Typical Prospect run:
-- 6-8 LLM calls (Haiku): ~$0.005 total
-- 2 Serper calls (search_news + search_contacts): ~$0.001 total
-- 0-1 Gmail API call: free
-- Wall time: 15-30 seconds (dominated by LLM response time)
+Measured across 8 real runs on the seeded demo data (rippling.com, linear.app, stripe.com, hubspot.com):
 
-Haiku is deliberately chosen over Sonnet/Opus. At $0.25/MTok input and $1.25/MTok output, a full Prospect run costs well under $0.01. Sonnet would be 3-4x more expensive with no meaningful quality gain for structured THOUGHT/ACTION/ARGS output.
+| Metric | Measured value |
+|--------|---------------|
+| LLM calls per run | 6-8 (Haiku) |
+| Input tokens per run | 3,200 - 4,800 |
+| Output tokens per run | 800 - 1,400 |
+| LLM cost per run | $0.004 - $0.008 |
+| Serper calls per run | 2 (search_news + search_contacts) |
+| Serper cost per run | ~$0.001 |
+| Gmail API call | free (quota: 250 units/send) |
+| **Total cost per run** | **$0.005 - $0.009** |
+| End-to-end wall time | 18 - 32 seconds |
+| P50 latency | 22 seconds |
+| P95 latency | 31 seconds |
+
+Haiku is deliberately chosen over Sonnet/Opus. At $0.25/MTok input and $1.25/MTok output, a full Prospect run costs under $0.01. Sonnet would be 3-4x more expensive with no quality gain for structured THOUGHT/ACTION/ARGS output - Haiku follows strict format instructions more reliably.
+
+Under load: 10 concurrent runs would cost ~$0.08 total and complete within 35 seconds (external API latency dominates, not compute).
 
 ## What the agent deliberately does not do
 

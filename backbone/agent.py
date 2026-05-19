@@ -22,7 +22,7 @@ from .integrations import search_news, search_contacts, send_email
 from .models import (
     init_db, upsert_account, upsert_contact, add_signal,
     add_opportunity, update_icp_score, get_account, get_contacts,
-    get_signals, mark_sent
+    get_signals
 )
 
 TRACES_DIR = Path(__file__).parent.parent / "traces"
@@ -215,9 +215,8 @@ Abhishek
                     metadata={"user_id": domain},
                 )
             except anthropic.RateLimitError as e:
-                self._log({"type": "ERROR", "content": f"Rate limit: {e}. Retrying after 60s."})
-                import time; time.sleep(60)
-                continue
+                self._log({"type": "ERROR", "content": f"Rate limit hit: {e}. Aborting run."})
+                break
             except anthropic.APIError as e:
                 self._log({"type": "ERROR", "content": f"Anthropic API error: {e}"})
                 break

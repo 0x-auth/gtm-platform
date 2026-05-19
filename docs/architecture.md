@@ -95,6 +95,19 @@ The bridge between a contact and an outreach action.
 | sent_at | TEXT | When email was sent |
 | created_at | TEXT | ISO timestamp |
 
+### activities
+
+Timestamped events linked to an account and optionally a contact. Used to track calls, meetings, email opens, and other engagement events.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | TEXT PK | UUID prefix |
+| account_id | TEXT FK | Parent account |
+| contact_id | TEXT FK | Contact involved (optional) |
+| type | TEXT | Activity type (call, meeting, email_open, note) |
+| description | TEXT | Activity details |
+| occurred_at | TEXT | ISO timestamp |
+
 ### icp_profiles
 
 Ideal Customer Profile definitions. Multiple profiles supported.

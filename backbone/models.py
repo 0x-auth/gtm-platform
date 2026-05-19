@@ -60,6 +60,15 @@ def init_db():
             captured_at TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS activities (
+            id          TEXT PRIMARY KEY,
+            account_id  TEXT REFERENCES accounts(id),
+            contact_id  TEXT REFERENCES contacts(id),
+            type        TEXT NOT NULL,
+            description TEXT,
+            occurred_at TEXT DEFAULT (datetime('now'))
+        );
+
         CREATE TABLE IF NOT EXISTS icp_profiles (
             id          TEXT PRIMARY KEY,
             name        TEXT NOT NULL,
@@ -229,20 +238,5 @@ def get_opportunity(account_id):
         return dict(row) if row else None
     except sqlite3.Error:
         return None
-    finally:
-        conn.close()
-
-
-def mark_sent(opp_id):
-    conn = get_conn()
-    try:
-        conn.execute(
-            "UPDATE opportunities SET sent_at=datetime('now'), stage='outreach_sent' WHERE id=?",
-            (opp_id,)
-        )
-        conn.commit()
-    except sqlite3.Error as e:
-        conn.rollback()
-        raise RuntimeError(f"mark_sent failed: {e}") from e
     finally:
         conn.close()
