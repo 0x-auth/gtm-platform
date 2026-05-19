@@ -1,16 +1,25 @@
 """FastAPI backend - GTM platform API."""
 import json
+import re
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from .agent import GTMAgent
 from .models import init_db, get_account, get_contacts, get_signals, get_opportunity
 
 app = FastAPI(title="GTM Platform", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8000", "http://localhost:3000"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 
 TRACES_DIR = Path(__file__).parent.parent / "traces"
 PROSPECT_DIR = Path(__file__).parent.parent / "prospect"
@@ -19,6 +28,13 @@ PROSPECT_DIR = Path(__file__).parent.parent / "prospect"
 class ProspectRequest(BaseModel):
     domain: str
     send_to: Optional[str] = None
+
+    @field_validator('domain')
+    @classmethod
+    def domain_safe(cls, v: str) -> str:
+        if not re.match(r'^[a-zA-Z0-9.-]{1,253}$', v):
+            raise ValueError('Invalid domain')
+        return v.lower()
 
 
 class EmailRequest(BaseModel):
@@ -78,6 +94,8 @@ def list_traces():
 
 @app.get("/api/traces/{trace_id}")
 def get_trace(trace_id: str):
+    if not re.match(r'^[a-f0-9]{8}$', trace_id):
+        raise HTTPException(400, "Invalid trace ID")
     f = TRACES_DIR / f"trace_{trace_id}.json"
     if not f.exists():
         raise HTTPException(404, "Trace not found")

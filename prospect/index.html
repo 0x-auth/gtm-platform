@@ -132,7 +132,7 @@ async function loadTrace(id) {
   const res = await fetch('/api/traces/' + id);
   const steps = await res.json();
   const container = document.getElementById('traceSteps');
-  container.innerHTML = '';
+  while (container.firstChild) container.removeChild(container.firstChild);
 
   if (!Array.isArray(steps)) {
     const msg = document.createElement('div');
