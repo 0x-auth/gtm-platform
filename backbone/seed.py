@@ -1,14 +1,33 @@
-"""Seed demo data - 10 companies, 21 contacts, 20+ signals, 2 ICPs, 3 personas."""
+"""Seed demo data - 1 tenant, 10 companies, 21 contacts, 20+ signals, 2 ICPs, 3 personas.
+
+Seed data schema is also declared in seed_data.json at the repo root for tooling/reviewers.
+To extend: add rows below following the same upsert_account / upsert_contact / add_signal pattern.
+"""
 from .models import init_db, upsert_account, upsert_contact, add_signal, update_icp_score
 
 import sqlite3
+import uuid
 from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "data" / "gtm.db"
 
 
+def _upsert_tenant(tenant_id: str, name: str, plan: str):
+    """Seed the default tenant. Multi-tenancy: each tenant gets isolated account rows."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        existing = conn.execute("SELECT id FROM accounts WHERE domain=?", ("tenant.internal",)).fetchone()
+        if not existing:
+            conn.execute(
+                "INSERT INTO accounts (id, domain, name, industry, size) VALUES (?,?,?,?,?)",
+                (tenant_id, "tenant.internal", f"Tenant: {name} [{plan}]", "platform", "1")
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+
 def _upsert_icp(name: str, industries: str, sizes: str, titles: str, keywords: str):
-    import uuid
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -25,6 +44,9 @@ def _upsert_icp(name: str, industries: str, sizes: str, titles: str, keywords: s
 
 def seed():
     init_db()
+
+    # ── Tenant (1) - required for multi-tenant foundation ─────────────────────
+    _upsert_tenant("tenant-default", "Default Tenant", "enterprise")
 
     # ── ICP Profiles (2) ──────────────────────────────────────────────────────
     _upsert_icp(

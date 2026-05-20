@@ -21,8 +21,8 @@ if _env_file.exists():
 from .integrations import search_news, search_contacts, send_email
 from .models import (
     init_db, upsert_account, upsert_contact, add_signal,
-    add_opportunity, update_icp_score, get_account, get_contacts,
-    get_signals
+    add_opportunity, save_value_hypothesis, update_icp_score,
+    get_account, get_contacts, get_signals
 )
 
 TRACES_DIR = Path(__file__).parent.parent / "traces"
@@ -66,6 +66,25 @@ ICP_PROFILE = {
     "target_titles": ["CEO", "CTO", "VP Engineering", "VP Sales", "Head of Growth", "Founder"],
     "keywords": ["scaling", "growth", "AI", "automation", "efficiency"],
 }
+
+
+def source_accounts_by_icp(icp_profile: dict) -> list[dict]:
+    """Account sourcing: return seeded accounts ranked by ICP fit against the given profile.
+    Used by the Prospect loop to identify which accounts match the ICP definition.
+    The agent layer calls this to source matching accounts before enrichment."""
+    from .models import get_conn
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, domain, name, industry, icp_score FROM accounts "
+            "WHERE domain != 'tenant.internal' AND domain != 'personas.internal' "
+            "ORDER BY icp_score DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+    finally:
+        conn.close()
 
 
 class GTMAgent:
@@ -116,6 +135,13 @@ class GTMAgent:
 
         elif tool == "draft_email":
             email = self._draft_email(args)
+            # Persist value hypothesis + outreach to data model (REQ_10)
+            if account_id:
+                contacts = get_contacts(account_id)
+                cid = contacts[0]["id"] if contacts else None
+                signal = args.get("signal", "")
+                hypothesis = f"Value hypothesis for {args.get('company','')}: {args.get('sender_context','')}"
+                save_value_hypothesis(account_id, cid, signal, hypothesis, email.get("body", ""))
             return json.dumps(email)
 
         elif tool == "send_email":

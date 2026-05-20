@@ -58,7 +58,14 @@ def root():
 
 @app.post("/api/prospect")
 def prospect(req: ProspectRequest):
-    """Run full prospect loop for a domain."""
+    """Six-step prospect loop UI entry point.
+
+    Called by prospect/index.html when user clicks 'Run Prospect Loop'.
+    Runs the full agent loop: search_news -> search_contacts -> score_icp
+    -> save_contact -> draft_email (generates + persists value hypothesis) -> ANSWER.
+    Returns trace_id, icp_score, contacts_found, signals, steps.
+    UI displays step progress, metrics, and full agent trace.
+    """
     agent = GTMAgent(verbose=True)
     result = agent.run(req.domain, send_to=req.send_to)
     return result

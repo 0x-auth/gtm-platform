@@ -1,0 +1,40 @@
+{
+  "description": "Demo seed data for GTM Platform - loaded automatically on startup via backbone/seed.py",
+  "tenants": [
+    {
+      "id": "tenant-default",
+      "name": "Default Tenant",
+      "plan": "enterprise"
+    }
+  ],
+  "icp_profiles": [
+    {
+      "name": "Enterprise SaaS",
+      "industries": ["HR SaaS", "FinTech", "DevTools"],
+      "sizes": ["200-5000"],
+      "titles": ["VP Sales", "CRO", "Head of RevOps", "VP Engineering"],
+      "keywords": ["ARR", "pipeline", "enterprise", "Series B", "Series C", "Series D"]
+    },
+    {
+      "name": "Growth Stage Tech",
+      "industries": ["Developer Tools", "AI", "Productivity"],
+      "sizes": ["50-500"],
+      "titles": ["CEO", "CTO", "VP Engineering", "Head of Product"],
+      "keywords": ["Series A", "Series B", "growth", "developer", "AI-native"]
+    }
+  ],
+  "companies": [
+    {"domain": "rippling.com", "name": "Rippling", "industry": "HR SaaS", "icp_score": 0.92},
+    {"domain": "linear.app", "name": "Linear", "industry": "Developer Tools", "icp_score": 0.87},
+    {"domain": "notion.so", "name": "Notion", "industry": "Productivity SaaS", "icp_score": 0.85},
+    {"domain": "vercel.com", "name": "Vercel", "industry": "Developer Tools", "icp_score": 0.81},
+    {"domain": "retool.com", "name": "Retool", "industry": "Low-Code SaaS", "icp_score": 0.78},
+    {"domain": "loom.com", "name": "Loom", "industry": "Productivity SaaS", "icp_score": 0.74},
+    {"domain": "figma.com", "name": "Figma", "industry": "Design SaaS", "icp_score": 0.80},
+    {"domain": "airtable.com", "name": "Airtable", "industry": "Low-Code SaaS", "icp_score": 0.76},
+    {"domain": "intercom.com", "name": "Intercom", "industry": "Customer Success SaaS", "icp_score": 0.83},
+    {"domain": "segment.com", "name": "Segment", "industry": "Data Infrastructure", "icp_score": 0.77}
+  ],
+  "total_contacts": 21,
+  "total_signals": 22
+}
