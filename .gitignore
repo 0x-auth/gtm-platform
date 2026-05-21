@@ -44,3 +44,4 @@ node_modules/
 
 # Misc
 *.sqlite3
+data/gtm.db
