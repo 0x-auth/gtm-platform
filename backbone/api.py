@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel, field_validator
 
+import anthropic
 from .agent import GTMAgent
 from .models import init_db, get_account, get_contacts, get_signals, get_opportunity
 
@@ -77,8 +78,10 @@ def prospect(req: ProspectRequest):
         return result
     except ValueError as e:
         raise HTTPException(status_code=422, detail={"error": str(e), "domain": req.domain, "step": "validation"})
-    except Exception as e:
+    except RuntimeError as e:
         raise HTTPException(status_code=500, detail={"error": str(e), "domain": req.domain, "step": "agent_run"})
+    except anthropic.APIError as e:
+        raise HTTPException(status_code=502, detail={"error": str(e), "domain": req.domain, "step": "llm_call"})
 
 
 @app.get("/api/account/{domain}")
