@@ -58,17 +58,27 @@ def root():
 
 @app.post("/api/prospect")
 def prospect(req: ProspectRequest):
-    """Six-step prospect loop UI entry point.
+    """Six-step prospect loop UI entry point. ERROR HANDLING: try/except wraps all agent execution.
 
     Called by prospect/index.html when user clicks 'Run Prospect Loop'.
     Runs the full agent loop: search_news -> search_contacts -> score_icp
     -> save_contact -> draft_email (generates + persists value hypothesis) -> ANSWER.
     Returns trace_id, icp_score, contacts_found, signals, steps.
     UI displays step progress, metrics, and full agent trace.
+
+    Error handling (CONSTR_20_2):
+    - ValueError -> HTTP 422 with structured JSON: {error, domain, step}
+    - Any Exception -> HTTP 500 with structured JSON: {error, domain, step}
+    - UI receives structured error response and shows error banner with retry button.
     """
-    agent = GTMAgent(verbose=True)
-    result = agent.run(req.domain, send_to=req.send_to)
-    return result
+    try:
+        agent = GTMAgent(verbose=True)
+        result = agent.run(req.domain, send_to=req.send_to)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail={"error": str(e), "domain": req.domain, "step": "validation"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"error": str(e), "domain": req.domain, "step": "agent_run"})
 
 
 @app.get("/api/account/{domain}")

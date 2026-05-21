@@ -218,9 +218,19 @@ No other files change. The agent will use the new tool when it decides it's appr
 2. Add CRUD functions in `models.py`
 3. The agent and API layer pick it up via the existing patterns
 
+**Indexing strategy (CONSTR_01_4 - query performance at scale)**:
+
+Current indexes in `init_db()` (models.py):
+- `idx_accounts_domain` - B-tree on `accounts.domain` - O(log n) domain lookup
+- `idx_contacts_account` - B-tree on `contacts.account_id` - O(log n) contact queries per account
+- `idx_signals_account` - B-tree on `signals.account_id` - O(log n) signal feed queries
+- `idx_opportunities_account` - B-tree on `opportunities.account_id` - O(log n) pipeline queries
+
+All read queries in `models.py` use `WHERE account_id = ?` or `WHERE domain = ?`, hitting these indexes directly. At 10M accounts this keeps queries at O(log n) without full table scans.
+
 **Scaling to 10M accounts**:
 1. Swap `sqlite3` for `psycopg2` in `models.py` (one import change)
-2. Add indexes on `account_id`, `domain`, `captured_at`
+2. Add composite index on `(account_id, captured_at)` for time-sorted signal feeds
 3. Move trace storage to S3/GCS (one path change in `agent.py`)
 4. Add Redis for ICP score caching
 

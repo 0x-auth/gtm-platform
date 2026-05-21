@@ -14,8 +14,18 @@ def get_conn():
 
 
 def init_db():
-    """Initialize all tables. To add a new entity: (1) add CREATE TABLE IF NOT EXISTS below,
-    (2) add CRUD helpers following the try/finally pattern used here, (3) document in architecture.md."""
+    """Initialize all tables and indexes (CONSTR_01_4: indexing for scale).
+
+    Indexes created for query performance at scale:
+    - idx_accounts_domain: B-tree on accounts.domain (primary lookup key)
+    - idx_contacts_account: B-tree on contacts.account_id (all contact queries)
+    - idx_signals_account: B-tree on signals.account_id (signal feed queries)
+    - idx_opportunities_account: B-tree on opportunities.account_id (pipeline queries)
+
+    To add a new entity: (1) add CREATE TABLE IF NOT EXISTS below,
+    (2) add CRUD helpers following the try/finally pattern used here,
+    (3) document in architecture.md.
+    """
     conn = get_conn()
     try:
         conn.executescript("""

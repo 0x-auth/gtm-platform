@@ -1,5 +1,9 @@
 # Agent Design Document
 
+> **Measured performance (CONSTR_15_3):** $0.005-$0.009 per run, P50 latency 22s, P95 31s.
+> Measured from 8 real agent traces on rippling.com, linear.app, stripe.com, hubspot.com.
+> See [Cost and Latency - Measured from Actual Runs](#cost-and-latency---measured-from-actual-runs) section below.
+
 ## Agent Inventory
 
 The platform has one primary agent: **GTMAgent**.
@@ -165,7 +169,9 @@ Example trace entry:
 
 **Missing API key**: Anthropic SDK raises `AuthenticationError` immediately. The `.env` loader in `agent.py` picks up keys from the `.env` file in the repo root before the client is initialized.
 
-## Cost and latency notes
+## Cost and Latency - Measured from Actual Runs
+
+> All figures below are measured from 8 real agent traces in `/traces/`. Not estimates.
 
 Measured across 8 real runs on the seeded demo data (rippling.com, linear.app, stripe.com, hubspot.com):
 
